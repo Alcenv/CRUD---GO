@@ -1,0 +1,28 @@
+version: "3"
+services:
+  db:
+    image: cockroachdb/cockroach:v22.2.7
+    command: start-single-node --advertise-addr '192.168.200.10' --insecure
+    networks:
+      demos:
+        ipv4_address: 192.168.200.10
+    ports:
+      - 26257:26257
+      - 8080:8080
+  web:
+    image: rejewski/golang_demos:latest
+    build: .
+    networks:
+      demos:
+        ipv4_address: 192.168.200.30
+    ports:
+      - 3000:3000
+    environment:
+      - DB_URL=postgresql://root@192.168.200.10
+      - DB_PORT=26257
+networks:
+  demos:
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.200.0/24

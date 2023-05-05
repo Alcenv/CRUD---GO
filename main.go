@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -34,9 +35,19 @@ func (ModelWithoutCreatedAt) TableName() string {
 }
 
 func main() {
+	DB_URL := os.Getenv("DB_URL")
+	if DB_URL == "" {
+		DB_URL = "postgresql://root@192.168.200.10"
+	}
+
+	DB_PORT := os.Getenv("DB_PORT")
+	if DB_PORT == "" {
+		DB_PORT = "26257"
+	}
 
 	r := gin.Default()
-	db, err := gorm.Open(mysql.Open("root:@tcp(127.0.0.1:3306)/sistema"), &gorm.Config{})
+	dbURL := fmt.Sprintf("%s:%s?sslmode=disable&application_name=$ demos_golang", DB_URL, DB_PORT)
+	db, err := gorm.Open(postgres.Open(dbURL), &gorm.Config{})
 	if err != nil {
 		panic(err)
 	}
@@ -104,5 +115,5 @@ func main() {
 
 	db.AutoMigrate(&Empleado{}, &ModelWithoutCreatedAt{})
 	r.LoadHTMLGlob("plantillas/*")
-	r.Run(":8080")
+	r.Run(":3000")
 }
