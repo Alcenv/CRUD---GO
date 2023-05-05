@@ -1,0 +1,39 @@
+{{define "inicio.html"}}
+{{template "cabecera.html"}}
+<a name="" id="" class="btn btn-primary" href="/crear" role="button">Agregar empleado</a>
+<br/><br/>
+{{if .empleados}}
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Correo</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+        {{range .empleados}}
+          <tr>
+            <td>{{.Id}}</td>
+            <td>{{.Nombre}}</td>
+            <td>{{.Correo}}</td>
+
+            <td>
+            <a name="" id="" class="btn btn-warning" href="/editar/{{.Id}}" role="button">Editar</a>
+
+            <a name="" id="" class="btn btn-danger" href="/borrar/{{.Id}}" role="button">Borrar</a>        
+
+            </td>
+          </tr>
+        {{end}}
+        </tbody>  
+        <td></td>
+      </table>
+{{else}}
+      <div class="alert alert-warning" role="alert">
+        No hay empleados registrados
+      </div>
+{{end}}  
+{{template "pie.html"}}
+{{end}}

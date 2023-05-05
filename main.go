@@ -1,144 +1,108 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
-	"text/template"
+	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/gin-gonic/gin"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
-func conexionBD() (conexion *sql.DB) {
-	Driver := "mysql"
-	Usuario := "root"
-	Contraseña := ""
-	Nombre := "sistema"
-
-	conexion, err := sql.Open(Driver, Usuario+":"+Contraseña+"@tcp(127.0.0.1)/"+Nombre)
-	if err != nil {
-		panic(err.Error())
-	}
-	return conexion
+type Empleado struct {
+	Id        uint      `gorm:"primaryKey"`
+	Nombre    string    `gorm:"not null"`
+	Correo    string    `gorm:"not null"`
+	CreatedAt time.Time `gorm:"autoCreateTime:milli"`
 }
 
-var plantillas = template.Must(template.ParseGlob("plantillas/*"))
+type ModelWithoutCreatedAt struct {
+	Id        uint `gorm:"primaryKey"`
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+}
+
+type ActualizarEmpleado struct {
+	Nombre string `form:"nombre"`
+	Correo string `form:"correo"`
+	Id     uint   `form:"id"`
+}
+
+func (ModelWithoutCreatedAt) TableName() string {
+	return "empleados"
+}
 
 func main() {
-	http.HandleFunc("/", Inicio)
-	http.HandleFunc("/crear", Crear)
-	http.HandleFunc("/insertar", Insertar)
-	http.HandleFunc("/borrar", Borrar)
-	http.HandleFunc("/editar", Editar)
-	http.HandleFunc("/actualizar", Actualizar)
 
-	fmt.Println("Servidor Funcionando...")
-	http.ListenAndServe(":8080", nil)
-}
-func Borrar(w http.ResponseWriter, r *http.Request) {
-	idEmpleado := r.URL.Query().Get("id")
-	conexionEstablecidad := conexionBD()
-	borrarRegistro, err := conexionEstablecidad.Prepare("DELETE FROM empleados WHERE id=?")
-
+	r := gin.Default()
+	db, err := gorm.Open(mysql.Open("root:@tcp(127.0.0.1:3306)/sistema"), &gorm.Config{})
 	if err != nil {
-		panic(err.Error())
+		panic(err)
 	}
-	borrarRegistro.Exec(idEmpleado)
-	http.Redirect(w, r, "/", 301)
-}
 
-type Empleado struct {
-	Id     int
-	Nombre string
-	Correo string
-}
+	db.AutoMigrate(&Empleado{})
 
-func Inicio(w http.ResponseWriter, r *http.Request) {
+	r.GET("/", func(c *gin.Context) {
+		var empleados []Empleado
+		db.Find(&empleados)
+		c.HTML(http.StatusOK, "inicio.html", gin.H{
+			"empleados": empleados,
+		})
+	})
 
-	conexionEstablecidad := conexionBD()
+	r.GET("/crear", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "crear.html", nil)
+	})
 
-	registros, err := conexionEstablecidad.Query("SELECT *FROM empleados")
+	r.POST("/insertar", func(c *gin.Context) {
+		nombre := c.PostForm("nombre")
+		correo := c.PostForm("correo")
+		empleado := Empleado{Nombre: nombre, Correo: correo}
+		db.Create(&empleado)
+		c.Redirect(http.StatusMovedPermanently, "/")
+	})
 
-	if err != nil {
-		panic(err.Error())
-	}
-	empleado := Empleado{}
-	arregloEmpleado := []Empleado{}
+	r.GET("/borrar/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		var empleado Empleado
+		db.First(&empleado, id)
+		db.Delete(&empleado)
+		c.Redirect(http.StatusMovedPermanently, "/")
+	})
 
-	for registros.Next() {
-		var id int
-		var nombre, correo string
-		err = registros.Scan(&id, &nombre, &correo)
-		if err != nil {
-			panic(err.Error())
+	r.GET("/editar/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		var empleado Empleado
+		db.First(&empleado, id)
+		c.HTML(http.StatusOK, "editar.html", gin.H{
+			"empleado": empleado,
+		})
+	})
+
+	r.POST("/actualizar", func(c *gin.Context) {
+		var empleadoActualizar ActualizarEmpleado
+		if err := c.ShouldBind(&empleadoActualizar); err != nil {
+			fmt.Println(err) // Imprime el error en la consola
+			c.String(http.StatusBadRequest, "Error al obtener los datos del empleado a actualizar")
+			return
 		}
-		empleado.Id = id
-		empleado.Nombre = nombre
-		empleado.Correo = correo
 
-		arregloEmpleado = append(arregloEmpleado, empleado)
-	}
-
-	//fmt.Println(arregloEmpleado)
-
-	plantillas.ExecuteTemplate(w, "inicio", arregloEmpleado)
-}
-
-func Editar(w http.ResponseWriter, r *http.Request) {
-	idEmpleado := r.URL.Query().Get("id")
-	//fmt.Println(idEmpleado)
-
-	conexionEstablecidad := conexionBD()
-	registro, err := conexionEstablecidad.Query("SELECT *FROM empleados WHERE id=?", idEmpleado)
-
-	empleado := Empleado{}
-	for registro.Next() {
-		var id int
-		var nombre, correo string
-		err = registro.Scan(&id, &nombre, &correo)
-		if err != nil {
-			panic(err.Error())
+		var empleado Empleado
+		db.First(&empleado, empleadoActualizar.Id)
+		if empleado.Id == 0 {
+			fmt.Printf("No se encontró el empleado con el ID %d", empleadoActualizar.Id) // Imprime un mensaje en la consola
+			c.String(http.StatusBadRequest, "No se encontró el empleado con el ID especificado")
+			return
 		}
-		empleado.Id = id
-		empleado.Nombre = nombre
-		empleado.Correo = correo
-	}
-	//fmt.Println(empleado)
-	plantillas.ExecuteTemplate(w, "editar", empleado)
 
-}
+		empleado.Nombre = empleadoActualizar.Nombre
+		empleado.Correo = empleadoActualizar.Correo
+		db.Save(&empleado)
+		c.Redirect(http.StatusMovedPermanently, "/")
+	})
 
-func Crear(w http.ResponseWriter, r *http.Request) {
-	plantillas.ExecuteTemplate(w, "crear", nil)
-}
-func Insertar(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		nombre := r.FormValue("nombre")
-		correo := r.FormValue("correo")
-
-		conexionEstablecidad := conexionBD()
-		insertarRegistros, err := conexionEstablecidad.Prepare("INSERT INTO empleados(nombre,correo) VALUES(?,?)")
-
-		if err != nil {
-			panic(err.Error())
-		}
-		insertarRegistros.Exec(nombre, correo)
-		http.Redirect(w, r, "/", 301)
-	}
-}
-func Actualizar(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		id := r.FormValue("id")
-		nombre := r.FormValue("nombre")
-		correo := r.FormValue("correo")
-
-		conexionEstablecidad := conexionBD()
-		modificarRegistros, err := conexionEstablecidad.Prepare("UPDATE empleados SET nombre=?, correo=? WHERE id=?")
-
-		if err != nil {
-			panic(err.Error())
-		}
-		modificarRegistros.Exec(nombre, correo, id)
-		http.Redirect(w, r, "/", 301)
-	}
+	db.AutoMigrate(&Empleado{}, &ModelWithoutCreatedAt{})
+	r.LoadHTMLGlob("plantillas/*")
+	r.Run(":8080")
 }
