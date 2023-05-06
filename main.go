@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
@@ -12,26 +11,9 @@ import (
 )
 
 type Empleado struct {
-	Id        uint      `gorm:"primaryKey"`
-	Nombre    string    `gorm:"not null"`
-	Correo    string    `gorm:"not null"`
-	CreatedAt time.Time `gorm:"autoCreateTime:milli"`
-}
-
-type ModelWithoutCreatedAt struct {
-	Id        uint `gorm:"primaryKey"`
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
-}
-
-type ActualizarEmpleado struct {
-	Nombre string `form:"nombre"`
-	Correo string `form:"correo"`
-	Id     uint   `form:"id"`
-}
-
-func (ModelWithoutCreatedAt) TableName() string {
-	return "empleados"
+	Id     uint   `gorm:"primaryKey"`
+	Nombre string `gorm:"not null"`
+	Correo string `gorm:"not null"`
 }
 
 func main() {
@@ -58,7 +40,7 @@ func main() {
 	}
 
 	if DB_INIT != "false" {
-		db.AutoMigrate(&Empleado{}, &ModelWithoutCreatedAt{})
+		db.AutoMigrate(&Empleado{})
 	}
 
 	r.GET("/", func(c *gin.Context) {
@@ -99,7 +81,7 @@ func main() {
 	})
 
 	r.POST("/actualizar", func(c *gin.Context) {
-		var empleadoActualizar ActualizarEmpleado
+		var empleadoActualizar Empleado
 		if err := c.ShouldBind(&empleadoActualizar); err != nil {
 			fmt.Println(err) // Imprime el error en la consola
 			c.String(http.StatusBadRequest, "Error al obtener los datos del empleado a actualizar")
