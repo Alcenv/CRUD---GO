@@ -8,4 +8,3 @@ COPY plantillas ./plantillas
 RUN go mod download
 
 EXPOSE 3000
-CMD [ "go", "run", "main.go" ]

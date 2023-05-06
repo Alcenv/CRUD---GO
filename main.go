@@ -37,7 +37,7 @@ func (ModelWithoutCreatedAt) TableName() string {
 func main() {
 	DB_URL := os.Getenv("DB_URL")
 	if DB_URL == "" {
-		DB_URL = "postgresql://root@192.168.200.10"
+		DB_URL = "postgresql://root@localhost"
 	}
 
 	DB_PORT := os.Getenv("DB_PORT")
@@ -45,14 +45,21 @@ func main() {
 		DB_PORT = "26257"
 	}
 
+	DB_INIT := os.Getenv("DB_INIT")
+	if DB_INIT == "" {
+		DB_INIT = "false"
+	}
+
 	r := gin.Default()
-	dbURL := fmt.Sprintf("%s:%s?sslmode=disable&application_name=$ demos_golang", DB_URL, DB_PORT)
+	dbURL := fmt.Sprintf("%s:%s/defaultdb?sslmode=disable&application_name=$ demos_golang", DB_URL, DB_PORT)
 	db, err := gorm.Open(postgres.Open(dbURL), &gorm.Config{})
 	if err != nil {
 		panic(err)
 	}
 
-	db.AutoMigrate(&Empleado{})
+	if DB_INIT == "true" {
+		db.AutoMigrate(&Empleado{}, &ModelWithoutCreatedAt{})
+	}
 
 	r.GET("/", func(c *gin.Context) {
 		var empleados []Empleado
@@ -113,7 +120,6 @@ func main() {
 		c.Redirect(http.StatusMovedPermanently, "/")
 	})
 
-	db.AutoMigrate(&Empleado{}, &ModelWithoutCreatedAt{})
 	r.LoadHTMLGlob("plantillas/*")
 	r.Run(":3000")
 }

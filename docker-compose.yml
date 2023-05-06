@@ -1,28 +1,65 @@
-version: "3"
+version: '3.8'
+
 services:
-  db:
-    image: cockroachdb/cockroach:v22.2.7
-    command: start-single-node --advertise-addr '192.168.200.10' --insecure
+  roach1:
+    image: cockroachdb/cockroach:v22.2.8
+    command: start --insecure --join=roach1,roach2,roach3
+    hostname: roach1
     networks:
-      demos:
-        ipv4_address: 192.168.200.10
-    ports:
-      - 26257:26257
-      - 8080:8080
-  web:
+      - roachnet
+      - appnet1
+  roach2:
+    image: cockroachdb/cockroach:v22.2.8
+    command: start --insecure --join=roach1,roach2,roach3
+    hostname: roach2
+    networks:
+      - roachnet
+      - appnet2
+
+  roach-init:
+    image: cockroachdb/cockroach:v22.2.8
+    command: init --insecure --host=roach1
+    hostname: roach3
+    networks:
+      - roachnet
+    depends_on:
+      - roach1
+      - roach2
+
+  app1:
     image: rejewski/golang_demos:latest
     build: .
+    command: go run main.go
+    hostname: app1
     networks:
-      demos:
-        ipv4_address: 192.168.200.30
+      - appnet1
     ports:
-      - 3000:3000
+      - 3001:3000
+    depends_on:
+      - roach1
+      - roach2
+      - roach-init
     environment:
-      - DB_URL=postgresql://root@192.168.200.10
+      - DB_URL=postgres://root@roach1
       - DB_PORT=26257
+      - DB_INIT=true
+  app2:
+    image: rejewski/golang_demos:latest
+    build: .
+    command: go run main.go
+    hostname: app2
+    networks:
+      - appnet2
+    ports:
+      - 3002:3000
+    depends_on:
+      - app1
+    environment:
+      - DB_URL=postgres://root@roach2
+      - DB_PORT=26257
+      - DB_INIT=true
+
 networks:
-  demos:
-    ipam:
-      driver: default
-      config:
-        - subnet: 192.168.200.0/24
+  roachnet:
+  appnet1:
+  appnet2:
