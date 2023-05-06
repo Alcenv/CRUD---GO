@@ -2,7 +2,12 @@
 
 ## Deploy on docker using docker-compose
 ```shell
-docker-compose up -d
+docker-compose up --build --no-start 
+```
+
+## Start docker-compose
+```shell
+docker-compose start
 ```
 
 ## Stop docker-compose
