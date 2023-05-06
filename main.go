@@ -47,7 +47,7 @@ func main() {
 
 	DB_INIT := os.Getenv("DB_INIT")
 	if DB_INIT == "" {
-		DB_INIT = "false"
+		DB_INIT = "true"
 	}
 
 	r := gin.Default()
@@ -57,7 +57,7 @@ func main() {
 		panic(err)
 	}
 
-	if DB_INIT == "true" {
+	if DB_INIT != "false" {
 		db.AutoMigrate(&Empleado{}, &ModelWithoutCreatedAt{})
 	}
 

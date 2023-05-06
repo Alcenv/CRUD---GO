@@ -33,8 +33,6 @@ services:
     hostname: app1
     networks:
       - appnet1
-    ports:
-      - 3001:3000
     depends_on:
       - roach1
       - roach2
@@ -50,15 +48,26 @@ services:
     hostname: app2
     networks:
       - appnet2
-    ports:
-      - 3002:3000
     depends_on:
       - app1
     environment:
       - DB_URL=postgres://root@roach2
       - DB_PORT=26257
-      - DB_INIT=true
+      - DB_INIT=false
 
+  balancer:
+    image: nginx:latest
+    hostname: balancer
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - appnet1
+      - appnet2
+    ports:
+      - 3000:3000 
+    depends_on:
+      - app1
+      - app2
 networks:
   roachnet:
   appnet1:
