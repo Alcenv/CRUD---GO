@@ -6,14 +6,15 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 type Empleado struct {
-	Id     uint   `gorm:"primaryKey"`
-	Nombre string `gorm:"not null"`
-	Correo string `gorm:"not null"`
+	Id     uuid.UUID `json:"id" gorm:"type:uuid;default:uuid_generate_v4()"`
+	Nombre string    `gorm:"not null"`
+	Correo string    `gorm:"not null"`
 }
 
 func main() {
@@ -46,6 +47,7 @@ func main() {
 	r.GET("/", func(c *gin.Context) {
 		var empleados []Empleado
 		db.Find(&empleados)
+		fmt.Println(empleados)
 		c.HTML(http.StatusOK, "inicio.html", gin.H{
 			"empleados": empleados,
 		})
@@ -65,39 +67,37 @@ func main() {
 
 	r.GET("/borrar/:id", func(c *gin.Context) {
 		id := c.Param("id")
-		var empleado Empleado
-		db.First(&empleado, id)
+		_uuid := uuid.MustParse(id)
+		fmt.Println(_uuid)
+		empleado := Empleado{Id: _uuid}
+		db.First(&empleado)
 		db.Delete(&empleado)
 		c.Redirect(http.StatusMovedPermanently, "/")
 	})
 
 	r.GET("/editar/:id", func(c *gin.Context) {
 		id := c.Param("id")
-		var empleado Empleado
-		db.First(&empleado, id)
+		fmt.Println(id)
+		empleado := Empleado{Id: uuid.MustParse(id)}
+		db.First(&empleado)
 		c.HTML(http.StatusOK, "editar.html", gin.H{
 			"empleado": empleado,
 		})
 	})
 
 	r.POST("/actualizar", func(c *gin.Context) {
-		var empleadoActualizar Empleado
-		if err := c.ShouldBind(&empleadoActualizar); err != nil {
-			fmt.Println(err) // Imprime el error en la consola
-			c.String(http.StatusBadRequest, "Error al obtener los datos del empleado a actualizar")
-			return
-		}
-
-		var empleado Empleado
-		db.First(&empleado, empleadoActualizar.Id)
-		if empleado.Id == 0 {
-			fmt.Printf("No se encontró el empleado con el ID %d", empleadoActualizar.Id) // Imprime un mensaje en la consola
+		id := c.PostForm("id")
+		empleado := Empleado{Id: uuid.MustParse(id)}
+		db.First(&empleado)
+		if empleado.Id == uuid.Nil {
+			fmt.Printf("No se encontró el empleado con el ID %d", empleado.Id) // Imprime un mensaje en la consola
 			c.String(http.StatusBadRequest, "No se encontró el empleado con el ID especificado")
 			return
 		}
-
-		empleado.Nombre = empleadoActualizar.Nombre
-		empleado.Correo = empleadoActualizar.Correo
+		nombre := c.PostForm("nombre")
+		correo := c.PostForm("correo")
+		empleado.Nombre = nombre
+		empleado.Correo = correo
 		db.Save(&empleado)
 		c.Redirect(http.StatusMovedPermanently, "/")
 	})
