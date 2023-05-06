@@ -58,6 +58,9 @@ services:
   balancer:
     image: caddy:latest
     command: caddy reverse-proxy --from :3000 --to http://app1:3000 --to http://app2:3000
+    # image: nginx:latest
+    # volumes:
+    #   - ./nginx.conf:/etc/nginx/nginx.conf:ro
     hostname: balancer
     networks:
       - appnet1
